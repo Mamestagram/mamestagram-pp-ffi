@@ -53,7 +53,64 @@ pub unsafe extern "C" fn calculate_score(
     miss_count: u32,
     passed_objects: FFIOption<u32>,
 ) -> CalculatePerformanceResult {
-    let beatmap = Beatmap::from_path(CStr::from_ptr(beatmap_path).to_str().unwrap()).unwrap();
+    let beatmap_path = CStr::from_ptr(beatmap_path).to_str().unwrap();
+    let beatmap = Beatmap::from_path(beatmap_path).unwrap();
+
+    // osu!std rx
+    if mode == 0 && mods & 128 > 0 {
+        let mut calculator = OsuPP::new(&beatmap);
+        calculator = calculator
+            .mods(mods)
+            .combo(max_combo as usize)
+            .misses(miss_count as usize);
+
+        if let Some(passed_objects) = passed_objects.into_option() {
+            calculator = calculator.passed_objects(passed_objects as usize);
+        }
+        
+        calculator = calculator.accuracy(accuracy as f32);
+
+        let rosu_result = calculator.calculate();
+        CalculatePerformanceResult::from_rx_attributes(rosu_result)
+    } else {
+        let mut calculator = AnyPP::new(&beatmap);
+        calculator = calculator
+            .mode(match mode {
+                0 => GameMode::Osu,
+                1 => GameMode::Taiko,
+                2 => GameMode::Catch,
+                3 => GameMode::Mania,
+                _ => panic!("Invalid mode"),
+            })
+            .mods(mods)
+            .combo(max_combo as usize)
+            .n_misses(miss_count as usize);
+
+        if let Some(passed_objects) = passed_objects.into_option() {
+            calculator = calculator.passed_objects(passed_objects as usize);
+        }
+        
+        calculator = calculator.accuracy(accuracy);
+
+        let rosu_result = calculator.calculate();
+        CalculatePerformanceResult::from_attributes(rosu_result)
+    }
+}
+
+#[ffi_function]
+#[no_mangle]
+pub unsafe extern "C" fn calculate_score_bytes(
+    beatmap_bytes: *const u8, 
+    len: u32,
+    mode: u32,
+    mods: u32,
+    max_combo: u32,
+    accuracy: f64,
+    miss_count: u32,
+    passed_objects: FFIOption<u32>,
+) -> CalculatePerformanceResult {
+    let bytes = std::slice::from_raw_parts(beatmap_bytes, len as usize);
+    let beatmap = Beatmap::from_bytes(bytes).unwrap();
 
     // osu!std rx
     if mode == 0 && mods & 128 > 0 {
