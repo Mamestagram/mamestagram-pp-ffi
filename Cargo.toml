@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 interoptopus = "0.14.14"
-akatsuki-pp = { path = "./akatsuki-pp-rs" }
+mames-pp = { git = "https://github.com/Mamestagram/mamestagram-pp-rs" }
 
 [dev-dependencies]
 interoptopus_backend_csharp = "0.14.14"
