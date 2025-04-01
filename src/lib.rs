@@ -1,7 +1,8 @@
-use akatsuki_pp::{
-    osu_2019::{stars::OsuPerformanceAttributes, OsuPP},
-    AnyPP, Beatmap, GameMode, PerformanceAttributes,
+use mames_pp::any::DifficultyAttributes;
+use mames_pp::{
+    Difficulty, Performance, Beatmap, any::PerformanceAttributes
 };
+
 use interoptopus::{
     extra_type, ffi_function, ffi_type, function, patterns::option::FFIOption, Inventory,
     InventoryBuilder,
@@ -27,17 +28,10 @@ impl std::fmt::Display for CalculatePerformanceResult {
 }
 
 impl CalculatePerformanceResult {
-    fn from_attributes(attributes: PerformanceAttributes) -> Self {
+    fn from_attributes(perf: PerformanceAttributes, diff: DifficultyAttributes) -> Self {
         Self {
-            pp: attributes.pp(),
-            stars: attributes.stars(),
-        }
-    }
-
-    fn from_rx_attributes(attributes: OsuPerformanceAttributes) -> Self {
-        Self {
-            pp: attributes.pp,
-            stars: attributes.difficulty.stars,
+            pp: perf.pp(),
+            stars: diff.stars(),
         }
     }
 }
@@ -56,45 +50,22 @@ pub unsafe extern "C" fn calculate_score(
     let beatmap_path = CStr::from_ptr(beatmap_path).to_str().unwrap();
     let beatmap = Beatmap::from_path(beatmap_path).unwrap();
 
-    // osu!std rx
-    if mode == 0 && mods & 128 > 0 {
-        let mut calculator = OsuPP::new(&beatmap);
-        calculator = calculator
-            .mods(mods)
-            .combo(max_combo as usize)
-            .misses(miss_count as usize);
+    let difficulty = Difficulty::new().mods(mods).calculate(&beatmap);
 
-        if let Some(passed_objects) = passed_objects.into_option() {
-            calculator = calculator.passed_objects(passed_objects as usize);
-        }
-        
-        calculator = calculator.accuracy(accuracy as f32);
+    let mut performance = Performance::new(&beatmap);
+    performance = performance
+        .mods(mods)
+        .combo(max_combo)
+        .misses(miss_count);
 
-        let rosu_result = calculator.calculate();
-        CalculatePerformanceResult::from_rx_attributes(rosu_result)
-    } else {
-        let mut calculator = AnyPP::new(&beatmap);
-        calculator = calculator
-            .mode(match mode {
-                0 => GameMode::Osu,
-                1 => GameMode::Taiko,
-                2 => GameMode::Catch,
-                3 => GameMode::Mania,
-                _ => panic!("Invalid mode"),
-            })
-            .mods(mods)
-            .combo(max_combo as usize)
-            .n_misses(miss_count as usize);
-
-        if let Some(passed_objects) = passed_objects.into_option() {
-            calculator = calculator.passed_objects(passed_objects as usize);
-        }
-        
-        calculator = calculator.accuracy(accuracy);
-
-        let rosu_result = calculator.calculate();
-        CalculatePerformanceResult::from_attributes(rosu_result)
+    if let Some(passed_objects) = passed_objects.into_option() {
+        performance = performance.passed_objects(passed_objects as u32);
     }
+    
+    performance = performance.accuracy(accuracy);
+    let performance_result = performance.calculate();
+
+    CalculatePerformanceResult::from_attributes(performance_result, difficulty)
 }
 
 #[ffi_function]
@@ -112,45 +83,22 @@ pub unsafe extern "C" fn calculate_score_bytes(
     let bytes = std::slice::from_raw_parts(beatmap_bytes, len as usize);
     let beatmap = Beatmap::from_bytes(bytes).unwrap();
 
-    // osu!std rx
-    if mode == 0 && mods & 128 > 0 {
-        let mut calculator = OsuPP::new(&beatmap);
-        calculator = calculator
-            .mods(mods)
-            .combo(max_combo as usize)
-            .misses(miss_count as usize);
+    let difficulty = Difficulty::new().mods(mods).calculate(&beatmap);
 
-        if let Some(passed_objects) = passed_objects.into_option() {
-            calculator = calculator.passed_objects(passed_objects as usize);
-        }
-        
-        calculator = calculator.accuracy(accuracy as f32);
+    let mut performance = Performance::new(&beatmap);
+    performance = performance
+        .mods(mods)
+        .combo(max_combo)
+        .misses(miss_count);
 
-        let rosu_result = calculator.calculate();
-        CalculatePerformanceResult::from_rx_attributes(rosu_result)
-    } else {
-        let mut calculator = AnyPP::new(&beatmap);
-        calculator = calculator
-            .mode(match mode {
-                0 => GameMode::Osu,
-                1 => GameMode::Taiko,
-                2 => GameMode::Catch,
-                3 => GameMode::Mania,
-                _ => panic!("Invalid mode"),
-            })
-            .mods(mods)
-            .combo(max_combo as usize)
-            .n_misses(miss_count as usize);
-
-        if let Some(passed_objects) = passed_objects.into_option() {
-            calculator = calculator.passed_objects(passed_objects as usize);
-        }
-        
-        calculator = calculator.accuracy(accuracy);
-
-        let rosu_result = calculator.calculate();
-        CalculatePerformanceResult::from_attributes(rosu_result)
+    if let Some(passed_objects) = passed_objects.into_option() {
+        performance = performance.passed_objects(passed_objects as u32);
     }
+    
+    performance = performance.accuracy(accuracy);
+    let performance_result = performance.calculate();
+
+    CalculatePerformanceResult::from_attributes(performance_result, difficulty)
 }
 
 pub fn my_inventory() -> Inventory {
