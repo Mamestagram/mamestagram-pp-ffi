@@ -56,7 +56,8 @@ pub unsafe extern "C" fn calculate_score(
     performance = performance
         .mods(mods)
         .combo(max_combo)
-        .misses(miss_count);
+        .misses(miss_count)
+        .lazer(false);
 
     if let Some(passed_objects) = passed_objects.into_option() {
         performance = performance.passed_objects(passed_objects as u32);
@@ -89,7 +90,8 @@ pub unsafe extern "C" fn calculate_score_bytes(
     performance = performance
         .mods(mods)
         .combo(max_combo)
-        .misses(miss_count);
+        .misses(miss_count)
+        .lazer(false);
 
     if let Some(passed_objects) = passed_objects.into_option() {
         performance = performance.passed_objects(passed_objects as u32);
